@@ -245,7 +245,7 @@ for it = 1:nt
     # Stokes residual evaluation =====================================
     # Iterative parameters -------------------------------------------
     Reopt   =   5*pi
-    cfl     =   0.2
+    cfl     =   0.5
     ρ       =   cfl*Reopt/ncx
     @time @views for iter = 1:50000    
         # Viscosity update -------------------------------------------           
