@@ -6,17 +6,13 @@ using Plots, LazyGrids, Printf, LinearAlgebra, LoopVectorization, MAT
                     Ain[1:end-1,2:end].+Ain[2:end,2:end])                         
 end
     
-@views function main()
-do_save     =   false
-pureshear   =   false
+@views function main(N,η_reg,γ0)
+do_save     =   true
+pureshear   =   true
 PSS         =   false
-γinc        =   true
+γinc        =   false
 Ddir        =   "D:/Users/lukas/Numerics/BACKUP/progs/src/MATLAB/Projects/2D_VEP_SDW_reg"
-if PSS
-    Type        =   "PSS"
-else
-    Type        =   "VSS"
-end
+Type        =   "PSS"
 if pureshear
     Def     =   "PS"
 else
@@ -24,9 +20,9 @@ else
 end
 # Model constants ====================================================
 # Model dimensions ---------------------------------------------------
-xmin        =   0.0
+xmin        =   -1.0
 xmax        =   1.0
-ymin        =   .0
+ymin        =   -1.0
 ymax        =   1.0
 # Viscous inclusion --------------------------------------------------
 # Inclusion radius ---------------------------------------------------
@@ -35,8 +31,8 @@ ri          =   .3
 ηi          =   1.0
 ηm          =   1.0
 ## Plastic constants --------------------------------------------------
-τyield0     =   175        # Background yield stress
-η_reg       =   1.2e-2      # Regularization viscosity
+τyield0     =   1.75        # Background yield stress
+# η_reg       =   1.2e-2      # Regularization viscosity
 # Elastic constants --------------------------------------------------
 G           =   10           # Elastic shear module
 # Kinematic Boundary conditions --------------------------------------
@@ -45,7 +41,7 @@ G           =   10           # Elastic shear module
 # Strain dependent weakening =========================================
 Dmax        =   0.9
 γcr         =   10
-γ0          =   4.0
+# γ0          =   0.0
 # Strain hardening ================================================= #
 T           =   1.0;          # Non-dimensional temperature
 ηγ          =   82.8931     # Temperature-dependent healing constant
@@ -54,11 +50,12 @@ H           =   0 # B * exp( -ηγ/2 * ( 1/(T+1) - 1/2 ) )
 @printf("H(T) = %2.2e\n",H)
 # ================================================================== #
 # Time constants =====================================================
-nt          =   1                # Number of iterations
+nt          =   400                # Number of iterations
 t           =   .0                 # time
 # ================================================================== #
 # Numerical parameters ===============================================
-ncx, ncy    =   100, 100
+ncx         =   N 
+ncy         =   N 
 Δx, Δy      =   (xmax-xmin)/(ncx+1), (ymax-ymin)/(ncy+1)
 success     =   false
 # Vertices coordinates -----------------------------------------------
@@ -163,6 +160,7 @@ dvydτ   =   zeros(ncx,ncy+1)        #
 κΔτp    =   zeros(ncx,ncy)          # 
 # Damage -------------------------------------------------------------
 γc      =   zeros(ncx,ncy)          # Apparent strain; centroids
+γv      =   zeros(ncx+1,ncy+1)      # Apparent strain; vertices
 Dc      =   zeros(ncx,ncy)          # Damage
 Dv      =   zeros(ncx+1,ncy+1)      # Damage; vertices
 # Time parameter -----------------------------------------------------
@@ -243,7 +241,7 @@ for it = 1:nt
     # Stokes residual evaluation =====================================
     # Iterative parameters -------------------------------------------
     Reopt   =   5*pi
-    cfl     =   0.5
+    cfl     =   .5
     ρ       =   cfl*Reopt/ncx
     @time @views for iter = 1:50000    
         # Viscosity update -------------------------------------------           
@@ -254,14 +252,12 @@ for it = 1:nt
         if pureshear
             @tturbo @. Vx[:,1]   = Vx[:,2]                  # bottom
             @tturbo @. Vx[:,end] = Vx[:,end-1]              # top
-            @tturbo @. Vy[1,:]      = Vy[2,:]                   # left
-            @tturbo @. Vy[end,:]    = Vy[end-1,:]               # right
         else
             @tturbo @. Vx[:,1]   = 2 * VBCS - Vx[:,2]       # bottom
             @tturbo @. Vx[:,end] = 2 * VBCN - Vx[:,end-1]   # top
-            @tturbo @. Vy[1,:]      = Vy[end-1,:]                   # left
-            @tturbo @. Vy[end,:]    = Vy[2,:]               # right
-        end        
+        end
+        @tturbo @. Vy[1,:]      = Vy[2,:]                   # left
+        @tturbo @. Vy[end,:]    = Vy[end-1,:]               # right
         # Calculate velocity gradient tensor ------------------------- 
         @tturbo @. dvxdx = (Vx[2:end,2:end-1]-Vx[1:end-1,2:end-1])/Δx
         @tturbo @. dvydy = (Vy[2:end-1,2:end]-Vy[2:end-1,1:end-1])/Δy
@@ -536,4 +532,13 @@ end
 
 end     # end main function
 
-main()
+# ==================================================================== #
+# ==================================================================== #
+# ==================================================================== #
+N       = 50
+η_reg   =   1.2e-2
+γ0      = [0.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0] # 0.0, 1.0
+
+for igamma=1:length(γ0)
+    main(N,η_reg,γ0[igamma])
+end
