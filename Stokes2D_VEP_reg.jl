@@ -1,5 +1,6 @@
 # Initialization
 using Plots, LazyGrids, Printf, LinearAlgebra, LoopVectorization, MAT
+import Statistics: mean 
 
 @views function av(Aout,Ain) 
         Aout .= 0.25.*(Ain[1:end-1,1:end-1].+Ain[2:end,1:end-1].+
@@ -144,6 +145,7 @@ dQdτxy  =   zeros(ncx,ncy)          #
 # Rheological---------------------------------------------------------
 ηc      =   zeros(ncx,ncy)          # Effective viscosity; centroids
 ηv      =   zeros(ncx+1,ncy+1)      # Effective viscosity; vertices
+ηBC     =   zeros(ncy-1)            # For BC
 ηvi     =   zeros(ncx+1,ncy+1)      # Viscous viscosity; vertices
 F       =   zeros(ncx,ncy)          # Yield function; vertices
 Fchk    =   zeros(ncx,ncy)          # 
@@ -182,7 +184,7 @@ else
     VBCN    =   2 .* εbg*ymax
     VBCS    =   2 .* εbg*ymin
 end
-# Viscous inculsion --------------------------------------------------
+# Viscous inclusion --------------------------------------------------
 α           =   0.0
 a_ell,b_ell =   1.0, 1.0
 x_ell       =   xv2 .* cos(α) .+ yv2 .* sin(α) 
@@ -254,12 +256,12 @@ for it = 1:nt
         if pureshear
             @tturbo @. Vx[:,1]   = Vx[:,2]                  # bottom
             @tturbo @. Vx[:,end] = Vx[:,end-1]              # top
-            @tturbo @. Vy[1,:]      = Vy[2,:]                   # left
-            @tturbo @. Vy[end,:]    = Vy[end-1,:]               # right
+            @tturbo @. Vy[1,:]      = Vy[2,:]               # left
+            @tturbo @. Vy[end,:]    = Vy[end-1,:]           # right
         else
             @tturbo @. Vx[:,1]   = 2 * VBCS - Vx[:,2]       # bottom
             @tturbo @. Vx[:,end] = 2 * VBCN - Vx[:,end-1]   # top
-            @tturbo @. Vy[1,:]      = Vy[end-1,:]                   # left
+            @tturbo @. Vy[1,:]      = Vy[end-1,:]           # left
             @tturbo @. Vy[end,:]    = Vy[2,:]               # right
         end        
         # Calculate velocity gradient tensor ------------------------- 
@@ -284,9 +286,9 @@ for it = 1:nt
                     εxyeffv[1:end-1,2:end] + εxyeffv[2:end,2:end]) / 4.0    
         @tturbo @. εIIeff = sqrt(0.5*(εxxeff^2 + εyyeff^2) + εxyeff^2)
         ## Trial stress -----------------------------------------------
-        @tturbo @. τxx[2:end-1,:]  =  2 *ηc*εxxeff
-        @tturbo @. τyy             =  2 *ηc*εyyeff
-        @tturbo @. τxy             =  2 *ηc*εxyeff        
+        @tturbo @. τxx[2:end-1,:]  =  2.0*ηc*εxxeff
+        @tturbo @. τyy             =  2.0*ηc*εyyeff
+        @tturbo @. τxy             =  2.0*ηc*εxyeff        
         @tturbo @. τII = sqrt(0.5*(τxx[2:end-1,:]^2 + τyy^2) + τxy^2 )  
         # Plasticity -------------------------------------------------
         if PSS
@@ -306,16 +308,22 @@ for it = 1:nt
                                 2.0 * ηc*(εxxeff -     λp*dQdτxx)
         @tturbo @. τyy      =   2.0 * ηc*(εyyeff -     λp*dQdτyy)
         @tturbo @. τxy      =   2.0 * ηc*(εxyeff - 0.5*λp*dQdτxy)
-        @tturbo @. τII = sqrt(0.5*(τxx[2:end-1,:]^2 + τyy^2) + τxy^2)
+        @tturbo @. τII      = sqrt(0.5*(τxx[2:end-1,:]^2 + τyy^2) + τxy^2)
         @tturbo @. Fchk     =   τII - τyield - λp * η_reg
         # Effective viscosity ----------------------------------------
         @tturbo @. ηc = τII / 2.0 / εIIeff
         @tturbo @. ηv[2:end-1,2:end-1] = 
                     (ηc[1:end-1,1:end-1] + ηc[2:end,1:end-1] + 
-                    ηc[1:end-1,2:end] + ηc[2:end,2:end]) ./ 4.0
-        @tturbo @. ηv[1,:] = ηv[2,:]
-        @tturbo @. ηv[end,:] = ηv[end-1,:]
-        @tturbo @. ηv[:,1] = ηv[:,2]
+                     ηc[1:end-1,2:end]   + ηc[2:end,2:end]) ./ 4.0
+        if pureshear
+            @tturbo @. ηv[1,:]   = ηv[2,:]
+            @tturbo @. ηv[end,:] = ηv[end-1,:]
+        else
+            @tturbo @. ηBC = (ηc[1,1:end-1] + ηc[end,1:end-1] + ηc[1,2:end]   + ηc[end,2:end]) ./ 4.0
+            @tturbo @. ηv[1,2:end-1] = ηBC
+            @tturbo @. ηv[end,2:end-1] = ηBC
+        end
+        @tturbo @. ηv[:,1]   = ηv[:,2]
         @tturbo @. ηv[:,end] = ηv[:,end-1]
         @tturbo @. τxyv = 2.0 * ηv * εxyeffv
         # PT time step -----------------------------------------------
@@ -326,17 +334,18 @@ for it = 1:nt
         # Define residuals ===========================================
         # Continuity equation ----------------------------------------
         @tturbo @. Fp    =  -∇V
+        if pureshear==false Fp  .-= mean(Fp) end
         # x - stokes equation ----------------------------------------
-        @tturbo @. P[1,:]       = P[end-1,:]
-        @tturbo @. P[end,:]     = P[2,:]
-        @tturbo @. τxx[1,:]     = τxx[end-1,:]
-        @tturbo @. τxx[end,:]   = τxx[2,:]
         if pureshear # pure shear boundary conditions
             @tturbo @. Fx[2:end-1,:]    =  
                 -(P[3:end-1,:] - P[2:end-2,:])/Δx + 
                 (τxx[3:end-1,:] - τxx[2:end-2,:])/Δx + 
                 (τxyv[2:end-1,2:end] - τxyv[2:end-1,1:end-1])/Δy
         else # simple shear boundary conditions; periodic
+            @tturbo @. P[1,:]       = P[end-1,:]
+            @tturbo @. P[end,:]     = P[2,:]
+            @tturbo @. τxx[1,:]     = τxx[end-1,:]
+            @tturbo @. τxx[end,:]   = τxx[2,:]
             @tturbo @. Fx   =  
                 -(P[2:end,:] - P[1:end-1,:])/Δx + 
                 (τxx[2:end,:] - τxx[1:end-1,:])/Δx + 
