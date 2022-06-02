@@ -9,10 +9,10 @@ end
     
 @views function main(N,η_reg,γ0)
 do_save     =   true
-pureshear   =   true
+pureshear   =   false
 PSS         =   false
-γinc        =   false
-Ddir        =   "D:/Users/lukas/Numerics/BACKUP/progs/src/MATLAB/Projects/2D_VEP_SDW_reg"
+γinc        =   true
+Ddir        =   "/home/external_homes/lufuchs/progs/src/MATLAB/Projects/2D_VEP_SDW_reg"
 if PSS
     Type        =   "PSS"
 else
@@ -27,7 +27,7 @@ end
 # Model dimensions ---------------------------------------------------
 xmin        =   0.0
 xmax        =   1.0
-ymin        =   .0
+ymin        =   0.0
 ymax        =   1.0
 # Viscous inclusion --------------------------------------------------
 # Inclusion radius ---------------------------------------------------
@@ -55,7 +55,7 @@ H           =   0 # B * exp( -ηγ/2 * ( 1/(T+1) - 1/2 ) )
 @printf("H(T) = %2.2e\n",H)
 # ================================================================== #
 # Time constants =====================================================
-nt          =   400                # Number of iterations
+nt          =   800                # Number of iterations
 t           =   .0                 # time
 # ================================================================== #
 # Numerical parameters ===============================================
@@ -549,9 +549,9 @@ end     # end main function
 # ==================================================================== #
 # ==================================================================== #
 # ==================================================================== #
-N       = 50
-η_reg   =   1.2e-2
-γ0      = [0.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0] # 0.0, 1.0
+N       = 100
+η_reg   = 1.2e-2
+γ0      = [0.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0]
 
 for igamma=1:length(γ0)
     main(N,η_reg,γ0[igamma])

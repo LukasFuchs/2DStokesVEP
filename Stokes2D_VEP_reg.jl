@@ -13,6 +13,7 @@ pureshear   =   false
 PSS         =   false
 γinc        =   true
 Ddir        =   "D:/Users/lukas/Numerics/BACKUP/progs/src/MATLAB/Projects/2D_VEP_SDW_reg"
+#Ddir        =   "/home/external_homes/lufuchs/progs/src/MATLAB/Projects/2D_VEP_SDW_reg"
 if PSS
     Type        =   "PSS"
 else
@@ -46,7 +47,7 @@ G           =   10           # Elastic shear module
 # Strain dependent weakening =========================================
 Dmax        =   0.9
 γcr         =   10
-γ0          =   4.0
+γ0          =   6.0
 # Strain hardening ================================================= #
 T           =   1.0;          # Non-dimensional temperature
 ηγ          =   82.8931     # Temperature-dependent healing constant
@@ -55,7 +56,7 @@ H           =   0 # B * exp( -ηγ/2 * ( 1/(T+1) - 1/2 ) )
 @printf("H(T) = %2.2e\n",H)
 # ================================================================== #
 # Time constants =====================================================
-nt          =   1                # Number of iterations
+nt          =   800                # Number of iterations
 t           =   .0                 # time
 # ================================================================== #
 # Numerical parameters ===============================================
@@ -261,8 +262,10 @@ for it = 1:nt
         else
             @tturbo @. Vx[:,1]   = 2 * VBCS - Vx[:,2]       # bottom
             @tturbo @. Vx[:,end] = 2 * VBCN - Vx[:,end-1]   # top
-            @tturbo @. Vy[1,:]      = Vy[end-1,:]           # left
-            @tturbo @. Vy[end,:]    = Vy[2,:]               # right
+            #@tturbo @. Vy[1,:]      = Vy[end-1,:]           # left
+            #@tturbo @. Vy[end,:]    = Vy[2,:]               # right
+            @tturbo @. Vy[1,:]      = Vy[2,:]                # left
+            @tturbo @. Vy[end,:]    = Vy[end-1,:]           # right
         end        
         # Calculate velocity gradient tensor ------------------------- 
         @tturbo @. dvxdx = (Vx[2:end,2:end-1]-Vx[1:end-1,2:end-1])/Δx
@@ -315,14 +318,14 @@ for it = 1:nt
         @tturbo @. ηv[2:end-1,2:end-1] = 
                     (ηc[1:end-1,1:end-1] + ηc[2:end,1:end-1] + 
                      ηc[1:end-1,2:end]   + ηc[2:end,2:end]) ./ 4.0
-        if pureshear
+        #if pureshear
             @tturbo @. ηv[1,:]   = ηv[2,:]
             @tturbo @. ηv[end,:] = ηv[end-1,:]
-        else
-            @tturbo @. ηBC = (ηc[1,1:end-1] + ηc[end,1:end-1] + ηc[1,2:end]   + ηc[end,2:end]) ./ 4.0
-            @tturbo @. ηv[1,2:end-1] = ηBC
-            @tturbo @. ηv[end,2:end-1] = ηBC
-        end
+        #else
+        #    @tturbo @. ηBC = (ηc[1,1:end-1] + ηc[end,1:end-1] + ηc[1,2:end]   + ηc[end,2:end]) ./ 4.0
+        #    @tturbo @. ηv[1,2:end-1] = ηBC
+        #    @tturbo @. ηv[end,2:end-1] = ηBC
+        #end
         @tturbo @. ηv[:,1]   = ηv[:,2]
         @tturbo @. ηv[:,end] = ηv[:,end-1]
         @tturbo @. τxyv = 2.0 * ηv * εxyeffv
@@ -342,10 +345,10 @@ for it = 1:nt
                 (τxx[3:end-1,:] - τxx[2:end-2,:])/Δx + 
                 (τxyv[2:end-1,2:end] - τxyv[2:end-1,1:end-1])/Δy
         else # simple shear boundary conditions; periodic
-            @tturbo @. P[1,:]       = P[end-1,:]
-            @tturbo @. P[end,:]     = P[2,:]
-            @tturbo @. τxx[1,:]     = τxx[end-1,:]
-            @tturbo @. τxx[end,:]   = τxx[2,:]
+            #@tturbo @. P[1,:]       = P[end-1,:]
+            #@tturbo @. P[end,:]     = P[2,:]
+            #@tturbo @. τxx[1,:]     = τxx[end-1,:]
+            #@tturbo @. τxx[end,:]   = τxx[2,:]
             @tturbo @. Fx   =  
                 -(P[2:end,:] - P[1:end-1,:])/Δx + 
                 (τxx[2:end,:] - τxx[1:end-1,:])/Δx + 
