@@ -27,7 +27,7 @@ end
 # Model dimensions ---------------------------------------------------
 xmin        =   0.0
 xmax        =   1.0
-ymin        =   .0
+ymin        =   0.0
 ymax        =   1.0
 # Viscous inclusion --------------------------------------------------
 # Inclusion radius ---------------------------------------------------
@@ -308,7 +308,7 @@ for it = 1:nt
                                 2.0 * ηc*(εxxeff -     λp*dQdτxx)
         @tturbo @. τyy      =   2.0 * ηc*(εyyeff -     λp*dQdτyy)
         @tturbo @. τxy      =   2.0 * ηc*(εxyeff - 0.5*λp*dQdτxy)
-        @tturbo @. τII      = sqrt(0.5*(τxx[2:end-1,:]^2 + τyy^2) + τxy^2)
+        @tturbo @. τII      = 	sqrt(0.5*(τxx[2:end-1,:]^2 + τyy^2) + τxy^2)
         @tturbo @. Fchk     =   τII - τyield - λp * η_reg
         # Effective viscosity ----------------------------------------
         @tturbo @. ηc = τII / 2.0 / εIIeff
