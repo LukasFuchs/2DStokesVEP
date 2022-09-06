@@ -8,9 +8,9 @@ import Statistics: mean
 end
     
 @views function main()
-do_save     =   false
-pureshear   =   false
-PSS         =   false
+do_save     =   true
+pureshear   =   true
+PSS         =   true
 γinc        =   true
 Ddir        =   "D:/Users/lukas/Numerics/BACKUP/progs/src/MATLAB/Projects/2D_VEP_SDW_reg"
 #Ddir        =   "/home/external_homes/lufuchs/progs/src/MATLAB/Projects/2D_VEP_SDW_reg"
@@ -37,17 +37,17 @@ ri          =   .3
 ηi          =   1.0
 ηm          =   1.0
 ## Plastic constants --------------------------------------------------
-τyield0     =   175        # Background yield stress
-η_reg       =   1.2e-2      # Regularization viscosity
+τyield0     =   1.75        # Background yield stress
+η_reg       =   0.012         # Regularization viscosity
 # Elastic constants --------------------------------------------------
 G           =   10           # Elastic shear module
 # Kinematic Boundary conditions --------------------------------------
 εbg         =   -1.0        # Background strain rate
 # ================================================================== #
 # Strain dependent weakening =========================================
-Dmax        =   0.9
+Dmax        =   0.0
 γcr         =   10
-γ0          =   6.0
+γ0          =   0.0
 # Strain hardening ================================================= #
 T           =   1.0;          # Non-dimensional temperature
 ηγ          =   82.8931     # Temperature-dependent healing constant
@@ -60,7 +60,7 @@ nt          =   800                # Number of iterations
 t           =   .0                 # time
 # ================================================================== #
 # Numerical parameters ===============================================
-ncx, ncy    =   100, 100
+ncx, ncy    =   50, 50
 Δx, Δy      =   (xmax-xmin)/(ncx+1), (ymax-ymin)/(ncy+1)
 success     =   false
 # Vertices coordinates -----------------------------------------------
@@ -76,6 +76,9 @@ yc          =   0.5*(yv[1:end-1].+yv[2:end])
 (xv2,yv2)   =   ndgrid(xv,yv)
 (xvx2,yvx2) =   ndgrid(xv,yvx)
 (xvy2,yvy2) =   ndgrid(xvy,yv)
+#diagindc    =   zeros(ncx,ncy)
+#diagindc    .=  xc2 .= xc # & yc2 .= yc[n:-1:1];
+#profilec    =   sqrt(xc2[diagindc].^2 + (1-yc2[diagindc]).^2 );
 # ================================================================== #
 # Memory allocation ==================================================
 # Kinematic ----------------------------------------------------------
@@ -166,6 +169,7 @@ dvydτ   =   zeros(ncx,ncy+1)        #
 κΔτp    =   zeros(ncx,ncy)          # 
 # Damage -------------------------------------------------------------
 γc      =   zeros(ncx,ncy)          # Apparent strain; centroids
+γ_tot   =   zeros(ncx,ncy)          # total strain; centroids
 Dc      =   zeros(ncx,ncy)          # Damage
 Dv      =   zeros(ncx+1,ncy+1)      # Damage; vertices
 # Time parameter -----------------------------------------------------
@@ -197,8 +201,10 @@ Elli        =   (x_ell ./ a_ell).^2 .+ (y_ell ./ b_ell).^2
 # Initial strain -----------------------------------------------------
 if γinc
     γc      .=  γ0 .* exp.( .- (xc2.^2 .+ yc2.^2) ./ ri .^ 2 )
+    γ_tot   .=  γc
 else
     γc      .=  rand(Float64,ncx,ncy) .* γ0
+    γ_tot   .=  γc
 end
 
 # ================================================================== #
@@ -248,7 +254,7 @@ for it = 1:nt
     Reopt   =   5*pi
     cfl     =   0.5
     ρ       =   cfl*Reopt/ncx
-    @time @views for iter = 1:50000    
+    @time @views for iter = 1:80000    
         # Viscosity update -------------------------------------------           
         @tturbo @. ηv   =  (1.0 / ηvi + 1.0 / ηel )^(-1.0) 
         @tturbo @. ηc   = (ηv[1:end-1,1:end-1] + ηv[2:end,1:end-1] + 
@@ -326,8 +332,8 @@ for it = 1:nt
         #    @tturbo @. ηv[1,2:end-1] = ηBC
         #    @tturbo @. ηv[end,2:end-1] = ηBC
         #end
-        @tturbo @. ηv[:,1]   = ηv[:,2]
-        @tturbo @. ηv[:,end] = ηv[:,end-1]
+        #@tturbo @. ηv[:,1]   = ηv[:,2]
+        #@tturbo @. ηv[:,end] = ηv[:,end-1]
         @tturbo @. τxyv = 2.0 * ηv * εxyeffv
         # PT time step -----------------------------------------------
         @tturbo @. Δτv  = ρ*min(Δx,Δy)^2 / ηv / 4.1 * cfl
@@ -433,11 +439,13 @@ for it = 1:nt
     # Calculate von Mises strain ===================================== 
     # γc          .+= Δt .* εII    
     if PSS
-        γc       .= Δt .* εIIpl .+ γc .* ( 1 - H * Δt )
+        γc      .= Δt .* εIIpl .+ γc .* ( 1 - H * Δt )
     else
-        γc       .= Δt .* εIIvic .+ γc .* ( 1 - H * Δt )
+        γc      .= Δt .* εIIvic .+ γc .* ( 1 - H * Δt )
     end
-    γc           .=  min.(γc,γcr)    
+    γc          .=  min.(γc,γcr)   
+    γ_tot       .=  γ_tot .+ εIIpl .* Δt 
+
     # Calculate time parameters ======================================
     τmean[it]   =   norm(τII)/length(τII)
     τmax[it]    =   maximum(τII)
@@ -467,17 +475,18 @@ for it = 1:nt
         plot(p9,p10,p11,aspect_ratio=1,xlim=(xmin,xmax),
             ylim=(ymin,ymax),xlabel="x",ylabel="y"); frame(anim3)    
         file = matopen(string("$(outdir)/Data", lpad(it,4,"0"),   ".mat"), "w");
-        write(file, "Pt",   Array(P));
-        write(file, "Vx",   Array(Vxc));
-        write(file, "Vy",   Array(Vyc)); 
-        write(file, "Vc",   Array(Vc)); 
-        write(file, "Tii",  Array(τII));
-        write(file, "Eiiv", Array(εIIv));
-        write(file, "Eiivi", Array(εIIvi));
-        write(file, "Eiiel", Array(εIIel));
-        write(file, "Eiipl", Array(εIIpl));
-        write(file, "Gamma", Array(γc));
-        write(file, "eta", Array(ηc));
+        write(file, "Pt",   Array(P'));
+        write(file, "Vx",   Array(Vxc'));
+        write(file, "Vy",   Array(Vyc')); 
+        write(file, "Vc",   Array(Vc')); 
+        write(file, "Tii",  Array(τII'));
+        write(file, "Eiiv", Array(εIIv'));
+        write(file, "Eiivi", Array(εIIvi'));
+        write(file, "Eiiel", Array(εIIel'));
+        write(file, "Eiipl", Array(εIIpl'));
+        write(file, "Gamma", Array(γc'));
+        write(file, "Gamma_tot", Array(γ_tot'));
+        write(file, "eta", Array(ηc'));
         close(file)    
     end
 end     # end time loop
@@ -491,7 +500,7 @@ if success==true
     p1 = heatmap(xc,yc,Vc',title="V")
     p2 = heatmap(xc,yc,P[2:end-1,:]',title="P")
     p3 = heatmap(xc,yc,γc',title="γc")
-    p4 = heatmap(xc,yc,log10.(ηc'),title="log10(ηc)")
+    p4 = heatmap(xc,yc,γ_tot',title="γ_tot")    
 
     p5 = heatmap(xv,yv,εIIv',title="εII")
     p6 = heatmap(xv,yv,εIIvi',title="εIIvi")
@@ -501,7 +510,8 @@ if success==true
     p9 = heatmap(xc,yc,τyield',title="τyield")
     p10 = heatmap(xc,yc,τII',title="τII")
     #p11 = heatmap(xv,yv,εcheck',title="εcheck")
-    p11 = heatmap(xv,yv,log10.(εcheck'),title="log( εIIpl / (εIIel + εIIvi) )")
+    p11 = heatmap(xc,yc,log10.(ηc'),title="log10(ηc)")
+    p12 = heatmap(xv,yv,log10.(εcheck'),title="log( εIIpl / (εIIel + εIIvi) )")
 
     display(plot(p1,p2,p3,p4,aspect_ratio=1,xlim=(xmin,xmax),
         ylim=(ymin,ymax),xlabel="x",ylabel="y"))
@@ -513,17 +523,17 @@ if success==true
     if do_save    
         savefig("$(outdir)/StrainRates_$(Def)_gam0_$(γ0)_Dmax_$(Dmax).png")
     end
-        display(plot(p9,p10,p11,aspect_ratio=1,xlim=(xmin,xmax),
+        display(plot(p9,p10,p11,p12,aspect_ratio=1,xlim=(xmin,xmax),
         ylim=(ymin,ymax),xlabel="x",ylabel="y"))
     if do_save    
         savefig("$(outdir)/Stress_$(Def)_gam0_$(γ0)_Dmax_$(Dmax).png")
     end
 
-    p11 = plot(time,τmean,xlabel="time",ylabel="τmean")
-    p12 = plot(time,τmax,xlabel="time",ylabel="τmax")
-    p13 = plot(time,γmean,xlabel="time",ylabel="γmean")
-    p14 = plot(time,γmax,xlabel="time",ylabel="γmax")
-    display(plot(p11,p12,p13,p14))    
+    p13 = plot(time,τmean,xlabel="time",ylabel="τmean")
+    p14 = plot(time,τmax,xlabel="time",ylabel="τmax")
+    p15 = plot(time,γmean,xlabel="time",ylabel="γmean")
+    p16 = plot(time,γmax,xlabel="time",ylabel="γmax")
+    display(plot(p13,p14,p15,p16))    
     if do_save    
         savefig("$(outdir)/TimeSeries_$(Def)_gam0_$(γ0)_Dmax_$(Dmax).png")
     end
