@@ -8,7 +8,7 @@ import Statistics: mean
 end
     
 @views function main()
-do_save     =   true
+do_save     =   false
 pureshear   =   true
 PSS         =   true
 γinc        =   true
@@ -38,16 +38,16 @@ ri          =   .3
 ηm          =   1.0
 ## Plastic constants --------------------------------------------------
 τyield0     =   1.75        # Background yield stress
-η_reg       =   0.012         # Regularization viscosity
+η_reg       =   0.05        # Regularization viscosity
 # Elastic constants --------------------------------------------------
 G           =   10           # Elastic shear module
 # Kinematic Boundary conditions --------------------------------------
 εbg         =   -1.0        # Background strain rate
 # ================================================================== #
 # Strain dependent weakening =========================================
-Dmax        =   0.0
+Dmax        =   0.9
 γcr         =   10
-γ0          =   0.0
+γ0          =   5.0
 # Strain hardening ================================================= #
 T           =   1.0;          # Non-dimensional temperature
 ηγ          =   82.8931     # Temperature-dependent healing constant
@@ -56,11 +56,11 @@ H           =   0 # B * exp( -ηγ/2 * ( 1/(T+1) - 1/2 ) )
 @printf("H(T) = %2.2e\n",H)
 # ================================================================== #
 # Time constants =====================================================
-nt          =   800                # Number of iterations
+nt          =   100                # Number of iterations
 t           =   .0                 # time
 # ================================================================== #
 # Numerical parameters ===============================================
-ncx, ncy    =   50, 50
+ncx, ncy    =   100, 100
 Δx, Δy      =   (xmax-xmin)/(ncx+1), (ymax-ymin)/(ncy+1)
 success     =   false
 # Vertices coordinates -----------------------------------------------
@@ -206,7 +206,7 @@ else
     γc      .=  rand(Float64,ncx,ncy) .* γ0
     γ_tot   .=  γc
 end
-
+print(Threads.nthreads())
 # ================================================================== #
 if do_save
     anim = Animation()

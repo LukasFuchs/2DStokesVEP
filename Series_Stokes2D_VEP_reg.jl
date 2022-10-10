@@ -7,13 +7,13 @@ import Statistics: mean
                     Ain[1:end-1,2:end].+Ain[2:end,2:end])                         
 end
     
-@views function main(N,η_reg,γ0)
+@views function main(N,nt,η_reg,γ0)
 do_save     =   true
-pureshear   =   true
+pureshear   =   false
 PSS         =   true
-γinc        =   true
-Ddir        =   "D:/Users/lukas/Numerics/BACKUP/progs/src/MATLAB/Projects/2D_VEP_SDW_reg"
-#Ddir        =   "/home/external_homes/lufuchs/progs/src/MATLAB/Projects/2D_VEP_SDW_reg"
+γinc        =   false
+#Ddir        =   "D:/Users/lukas/Numerics/BACKUP/progs/src/MATLAB/Projects/2D_VEP_SDW_reg"
+Ddir        =   "/home/external_homes/lufuchs/progs/src/MATLAB/Projects/2D_VEP_SDW_reg"
 if PSS
     Type        =   "PSS"
 else
@@ -56,7 +56,7 @@ H           =   0 # B * exp( -ηγ/2 * ( 1/(T+1) - 1/2 ) )
 @printf("H(T) = %2.2e\n",H)
 # ================================================================== #
 # Time constants =====================================================
-nt          =   800                # Number of iterations
+#nt          =   800                # Number of iterations
 t           =   .0                 # time
 # ================================================================== #
 # Numerical parameters ===============================================
@@ -562,10 +562,12 @@ end     # end main function
 # ==================================================================== #
 # ==================================================================== #
 # ==================================================================== #
-N       = 50
-η_reg   = [0.01,0.02,0.03,0.04,0.05,0.06,0.07,0.08,0.09]
-γ0      = 5.0
+N       = 100
+NT      = 3200
+η_reg   = 0.05
+γ0      = [5.0,6.0,8.0,10.0]
 
-for igamma=1:length(η_reg)
-    main(N,η_reg[igamma],γ0)
+for igamma=1:length(γ0)
+    main(N,NT,η_reg,γ0[igamma])
 end
+0
