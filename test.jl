@@ -1,4 +1,4 @@
-# Initialisation
+# Initialisation, just testing if github works! 
 using Plots, Printf, Statistics, LinearAlgebra
 Dat = Float64  # Precision (double=Float64 or single=Float32)
 # Macros
